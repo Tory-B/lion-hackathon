@@ -44,11 +44,15 @@ function scoreIndicator(rand, weight) {
   return { topPercent, earned }
 }
 
+// BE 파트 문서(레이어_점수산출_설계서)의 실제 지표·배점을 그대로 반영.
+// L1: 시장규모10 · 5년CAGR15 · 최근모멘텀5 (= 30)
+// L2: API 명세서 v3에 따라 성별분산·연령분산·실수요증가율·소비패턴안정성을
+//     28점→40점으로 비례 확대(7/7/11/15)해 처음부터 40점 전부 산출한다.
+// L3: 점포당 유동인구15 · 업종5년생존율15 (= 30)
 const MARKET_INDICATORS = [
   { key: 'marketSize', label: '시장 규모', weight: 10 },
-  { key: 'momentum', label: '최근 모멘텀', weight: 8 },
-  { key: 'demandGrowth', label: '실수요 증가율', weight: 7 },
-  { key: 'consumptionStability', label: '소비패턴 안정성', weight: 5 },
+  { key: 'cagr', label: '5년 CAGR', weight: 15 },
+  { key: 'momentum', label: '최근 모멘텀', weight: 5 },
 ]
 
 const CUSTOMER_INDICATORS = [
@@ -59,16 +63,14 @@ const CUSTOMER_INDICATORS = [
 ]
 
 const COMPETITION_INDICATORS = [
-  { key: 'storeCount', label: '점포 수', weight: 8 },
-  { key: 'density', label: '경쟁 밀도', weight: 8 },
-  { key: 'salesPerStore', label: '점포당 분기매출', weight: 7 },
-  { key: 'survivalRate', label: '업종 3년 생존율', weight: 7 },
+  { key: 'flowPerStore', label: '점포당 유동인구', weight: 15 },
+  { key: 'survivalRate', label: '업종 5년 생존율', weight: 15 },
 ]
 
 function buildLayer(layerKey, layerName, indicators, rand, storeCount) {
   const rows = indicators.map((ind) => {
     const { topPercent, earned } = scoreIndicator(rand, ind.weight)
-    const lowSample = ind.key === 'density' && storeCount < 10
+    const lowSample = ind.key === 'flowPerStore' && storeCount < 10
     return {
       ...ind,
       topPercent,
@@ -115,7 +117,7 @@ export function generateDiagnosis({ itemName, industry, problem, targetCustomer,
   const cagr = round1(-3 + rand() * 10)
   const avgPayment = Math.round(4000 + rand() * 15000)
   const survival = round1(20 + rand() * 55)
-  const density = round1(storeCount / (10 + rand() * 20))
+  const flowPerStore = Math.round(500 + rand() * 3000)
 
   const confirmedEvidences = [
     {
@@ -128,7 +130,7 @@ export function generateDiagnosis({ itemName, industry, problem, targetCustomer,
     },
     {
       layer: 'MARKET',
-      factor: '최근 5년 연평균 성장률',
+      factor: '최근 5년 연평균 성장률(CAGR)',
       value: `${cagr >= 0 ? '+' : ''}${cagr}%`,
       percentile: `서울 상위 ${market.indicators[1].topPercent}%`,
       source: '서울시 상권분석서비스',
@@ -136,24 +138,24 @@ export function generateDiagnosis({ itemName, industry, problem, targetCustomer,
     },
     {
       layer: 'CUSTOMER',
-      factor: '건당 평균 결제액',
+      factor: '건당 평균 결제액 (참고용, 점수화되지 않음)',
       value: `${avgPayment.toLocaleString()}원`,
-      percentile: `서울 상위 ${customer.indicators[2].topPercent}%`,
       source: '서울시 상권분석서비스',
       referenceDate: '2026년 1분기',
     },
     {
       layer: 'COMPETITION',
-      factor: '지역 내 동종 업소 수',
-      value: `${storeCount}개`,
-      source: '소상공인시장진흥공단 상가정보',
-      referenceDate: '2026년 6월',
+      factor: '점포당 유동인구',
+      value: `일평균 ${flowPerStore.toLocaleString()}명 (${storeCount}개 점포 기준)`,
+      percentile: `서울 상위 ${competition.indicators[0].topPercent}%`,
+      source: '상가정보 + 서울시 상권분석서비스(길단위인구)',
+      referenceDate: '2026년 1분기',
     },
     {
       layer: 'COMPETITION',
-      factor: '업종 3년 생존율',
+      factor: '업종 5년 생존율',
       value: `${survival}%`,
-      percentile: `전산업 평균 대비 ${survival >= 45 ? '상회' : '하회'}`,
+      percentile: `서울 상위 ${competition.indicators[1].topPercent}%`,
       source: '국가데이터처 기업생멸행정통계',
       referenceDate: '2023p',
     },
@@ -179,10 +181,10 @@ export function generateDiagnosis({ itemName, industry, problem, targetCustomer,
     totalRisk,
     verdict,
     dataCoverage: 'FULL',
-    aiSummary: `시장은 5년간 ${cagr >= 0 ? '꾸준히 커졌지만' : '정체됐고'} 최근 1년은 ${cagr >= 0 && market.indicators[1].earned < market.indicators[1].weight * 0.5 ? '성장이 둔화됐고' : '흐름이 이어지고 있고'}, ${district.name}은 경쟁 밀도가 서울 평균 ${density >= 15 ? '이상' : '이하'}입니다. 종합 판정은 '${worst.layerName}' 레이어가 상대적으로 가장 낮은 등급이라 그렇게 매겨졌습니다.`,
+    aiSummary: `시장은 5년간 ${cagr >= 0 ? '꾸준히 커졌지만' : '정체됐고'} 최근 1년 모멘텀은 ${market.indicators[2].earned < market.indicators[2].weight * 0.5 ? '둔화됐고' : '유지되고 있고'}, ${district.name}은 점포당 유동인구가 서울 상위 ${competition.indicators[0].topPercent}%입니다. 종합 판정은 '${worst.layerName}' 레이어가 상대적으로 가장 낮은 등급이라 그렇게 매겨졌습니다.`,
     layers: { market, customer, competition },
     confirmedEvidences,
     unverifiedHypotheses,
-    meta: { district, industry, storeCount, density: round1(density) },
+    meta: { district, industry, storeCount, flowPerStore },
   }
 }
