@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
 
 const VARIANTS = {
-  primary: 'bg-[#262626] text-white border border-[#262626] hover:bg-black',
-  secondary: 'bg-[rgba(46,44,42,0.06)] text-[#333] border border-[rgba(46,44,42,0.25)] hover:bg-[rgba(46,44,42,0.1)]',
-  link: 'bg-transparent text-[#666] underline hover:text-[#333] border-0 px-0',
+  primary: 'bg-brand-600 text-white border border-brand-600 hover:bg-brand-700',
+  dark: 'bg-ink-900 text-white border border-ink-900 hover:bg-black',
+  secondary: 'bg-white text-[#14181a] border border-[#d8ddda] hover:bg-[#f4f6f5]',
+  link: 'bg-transparent text-brand-700 underline hover:text-brand-800 border-0 px-0',
 }
 
 const Button = forwardRef(function Button(
@@ -12,8 +13,8 @@ const Button = forwardRef(function Button(
 ) {
   const base =
     variant === 'link'
-      ? 'text-sm font-normal disabled:opacity-40 disabled:cursor-not-allowed'
-      : 'rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
+      ? 'text-sm font-medium disabled:opacity-40 disabled:cursor-not-allowed'
+      : 'rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed'
   return (
     <button ref={ref} className={`${base} ${VARIANTS[variant]} ${className}`} {...props}>
       {children}

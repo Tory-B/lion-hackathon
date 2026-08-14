@@ -1,108 +1,84 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import AppLayout from '../components/AppLayout'
-import Card from '../components/ui/Card'
-import Button from '../components/ui/Button'
+import AppShell from '../components/AppShell'
+import ScoreRing from '../components/ui/ScoreRing'
 import { useApp } from '../context/AppContext'
 
-const STEPS = [
-  {
-    title: '시장 데이터 수집',
-    done: '관련 시장 규모 및 트렌드 데이터를 확인했습니다.',
-    doing: '관련 시장 규모 및 트렌드 데이터를 수집하고 있습니다.',
-  },
-  {
-    title: '경쟁 환경 분석',
-    done: '유사 서비스 및 경쟁사 포지션 분석을 완료했습니다.',
-    doing: '유사 서비스 및 경쟁사 포지션을 분석하고 있습니다.',
-  },
-  {
-    title: '타이밍 레이어 분석',
-    done: '검색·트렌드 데이터를 기반으로 진입 시점을 분석했습니다.',
-    doing: '검색·트렌드 데이터를 기반으로 진입 시점을 분석하고 있습니다.',
-  },
-  {
-    title: '수요 검증 수준 평가',
-    done: '데이터로 확인되지 않는 수요 가설을 식별했습니다.',
-    doing: '데이터로 확인되지 않는 수요 가설을 식별하고 있습니다.',
-  },
-  {
-    title: '종합 리스크 점수 산출',
-    done: '레이어별 점수를 종합해 리스크 점수를 산출했습니다.',
-    doing: '레이어별 점수를 종합하고 있습니다.',
-  },
+const STEP_LABELS = [
+  { key: 'MARKET', label: '시장 규모·성장률' },
+  { key: 'CUSTOMER', label: '고객(타겟)' },
+  { key: 'COMPETITION', label: '경쟁' },
 ]
 
 export default function AnalysisProgress() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { getAnalysis, advanceProgress } = useApp()
-  const analysis = getAnalysis(id)
+  const { getAnalysisStatus, refreshAnalyses } = useApp()
+  const [status, setStatus] = useState(null)
 
   useEffect(() => {
-    if (!analysis || analysis.status !== 'processing') return
-    const timer = setInterval(() => advanceProgress(id), 700)
-    return () => clearInterval(timer)
-  }, [id, analysis?.status, advanceProgress])
+    let stop = false
+    const poll = async () => {
+      try {
+        const s = await getAnalysisStatus(id)
+        if (stop) return
+        setStatus(s)
+        if (s.status === 'COMPLETED') {
+          await refreshAnalyses()
+          setTimeout(() => navigate(`/analyze/${id}/result`), 700)
+          return
+        }
+      } catch {
+        // ignore, keep polling
+      }
+      if (!stop) setTimeout(poll, 500)
+    }
+    poll()
+    return () => {
+      stop = true
+    }
+  }, [id, getAnalysisStatus, refreshAnalyses, navigate])
 
-  if (!analysis) {
-    return (
-      <AppLayout>
-        <Card>존재하지 않는 분석 요청입니다.</Card>
-      </AppLayout>
-    )
-  }
-
-  const step = analysis.progressStep
-  const done = analysis.status === 'done'
+  const stepIndex = status?.stepIndex ?? 0
+  const stepCount = status?.stepCount ?? STEP_LABELS.length + 1
+  const percent = status?.status === 'COMPLETED' ? 100 : Math.min(95, Math.round((stepIndex / stepCount) * 100) + 15)
 
   return (
-    <AppLayout>
-      <h1 className="text-[20px] font-bold text-[#171719] mb-5">분석 진행 상태</h1>
+    <AppShell crumb="진단 중">
+      <div className="flex flex-col items-center pt-6">
+        <ScoreRing percent={percent} label={`${percent}%`} />
+        <h1 className="mt-6 text-[22px] font-bold text-[#14181a]">진단 중입니다</h1>
+        <p className="text-[13px] text-[#9aa39e] mt-1">{status?.progressMessage ?? '요청을 준비하고 있습니다'}</p>
 
-      <Card className="flex items-center justify-between flex-wrap gap-3 mb-4">
-        <div>
-          <p className="font-semibold text-[#333]">{done ? '분석 완료' : '분석 진행 중'}</p>
-          <p className="text-[13px] text-[#666] mt-1">
-            {done
-              ? '시장 데이터 수집과 리스크 분석을 완료했습니다.'
-              : '시장 데이터 수집과 리스크 분석을 수행하고 있습니다. 잠시 기다려 주세요.'}
-          </p>
-        </div>
-        <p className="text-[13px] text-[#999]">{done ? '분석 완료' : '예상 완료까지 약 2~3분'}</p>
-      </Card>
-
-      <Card className="mb-4">
-        <p className="font-semibold text-[#333] mb-3">단계별 진행 현황</p>
-        <div className="flex flex-col gap-3">
-          {STEPS.map((s, idx) => {
-            const state = idx < step ? 'done' : idx === step && !done ? 'doing' : idx < step + 1 && done ? 'done' : 'waiting'
-            const icon = state === 'done' ? '✓' : state === 'doing' ? '●' : '○'
+        <div className="w-full max-w-[560px] mt-8 flex flex-col gap-3">
+          {STEP_LABELS.map((s, idx) => {
+            const done = idx < stepIndex || status?.status === 'COMPLETED'
+            const active = idx === stepIndex && status?.status !== 'COMPLETED'
             return (
-              <div key={s.title} className="flex items-start gap-3">
-                <span className="w-5 text-[14px] text-[#666] shrink-0">{icon}</span>
+              <div
+                key={s.key}
+                className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${
+                  active ? 'border-brand-400 bg-brand-50' : 'border-[#e2e6e3] bg-white'
+                }`}
+              >
+                <span
+                  className={`w-6 h-6 rounded-full flex items-center justify-center text-[12px] shrink-0 ${
+                    done ? 'bg-brand-500 text-white' : active ? 'bg-brand-100 text-brand-700' : 'bg-[#eef1ef] text-[#9aa39e]'
+                  }`}
+                >
+                  {done ? '✓' : idx + 1}
+                </span>
                 <div>
-                  <p className="text-[13px] font-medium text-[#333]">{s.title}</p>
-                  <p className="text-[12px] text-[#999]">
-                    {state === 'waiting' ? '대기 중입니다.' : state === 'doing' ? s.doing : s.done}
+                  <p className="text-[13px] font-medium text-[#14181a]">{s.label}</p>
+                  <p className="text-[12px] text-[#9aa39e]">
+                    {done ? '확인 완료' : active ? '데이터 분석 중…' : '대기 중'}
                   </p>
                 </div>
               </div>
             )
           })}
         </div>
-      </Card>
-
-      <Card>
-        <p className="font-semibold text-[#333] mb-2">완료 후 확인할 수 있는 결과</p>
-        <p className="text-[13px] text-[#666] mb-4 leading-relaxed">
-          종합 리스크 점수와 시장·경쟁·타이밍·수요 레이어별 점수, 그리고 직접 검증이 필요한
-          미검증 가설 목록을 확인할 수 있습니다.
-        </p>
-        <Button disabled={!done} onClick={() => navigate(`/analyze/${id}/result`)}>
-          리스크 진단 결과 보기
-        </Button>
-      </Card>
-    </AppLayout>
+      </div>
+    </AppShell>
   )
 }

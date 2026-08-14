@@ -10,8 +10,8 @@ export function Label({ children, required }) {
 export function Input({ className = '', error, ...props }) {
   return (
     <input
-      className={`w-full rounded-md border px-3 py-2.5 text-sm text-[#333] placeholder:text-[#999] focus:outline-none focus:ring-2 focus:ring-[#333]/20 ${
-        error ? 'border-red-400' : 'border-[#d0d0d0]'
+      className={`w-full rounded-lg border px-3 py-2.5 text-sm text-[#14181a] placeholder:text-[#9aa39e] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 ${
+        error ? 'border-red-400' : 'border-[#d8ddda]'
       } ${className}`}
       {...props}
     />
@@ -21,8 +21,8 @@ export function Input({ className = '', error, ...props }) {
 export function Textarea({ className = '', error, ...props }) {
   return (
     <textarea
-      className={`w-full rounded-md border px-3 py-2.5 text-sm text-[#333] placeholder:text-[#999] focus:outline-none focus:ring-2 focus:ring-[#333]/20 min-h-[88px] ${
-        error ? 'border-red-400' : 'border-[#d0d0d0]'
+      className={`w-full rounded-lg border px-3 py-2.5 text-sm text-[#14181a] placeholder:text-[#9aa39e] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 min-h-[88px] ${
+        error ? 'border-red-400' : 'border-[#d8ddda]'
       } ${className}`}
       {...props}
     />
