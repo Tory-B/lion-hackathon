@@ -24,3 +24,26 @@ export function markAnalysisPaid(analysisId) {
   const meta = getAnalysisMeta(analysisId) || {}
   saveAnalysisMeta(analysisId, { ...meta, paid: true })
 }
+
+// 실제 API에는 "이 세션이 만든 질문지 전체 목록" 엔드포인트가 없다 (analysisId+questionnaireId로
+// 단건 조회만 가능). 사이드바 "설문지" 목록을 위해, 생성할 때마다 프론트에서 직접 색인해둔다.
+const QUESTIONNAIRE_REFS_KEY = 'suyo_questionnaire_refs'
+
+export function addQuestionnaireRef(ref) {
+  try {
+    const refs = getQuestionnaireRefs()
+    refs.unshift(ref)
+    localStorage.setItem(QUESTIONNAIRE_REFS_KEY, JSON.stringify(refs))
+  } catch {
+    // ignore
+  }
+}
+
+export function getQuestionnaireRefs() {
+  try {
+    const raw = localStorage.getItem(QUESTIONNAIRE_REFS_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}

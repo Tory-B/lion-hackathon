@@ -1,18 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from './ui/Button'
 import { Label, Input, Textarea, FieldError } from './ui/Field'
-import { ALL_INDUSTRIES } from '../data/industries'
 import { DISTRICTS } from '../data/districts'
 import { useApp } from '../context/AppContext'
 
 export default function OnboardingModal({ initialQuery = '', initialDistrictCode = '', onClose }) {
   const navigate = useNavigate()
-  const { createAnalysis, refreshAnalyses } = useApp()
+  const { createAnalysis, refreshAnalyses, getIndustries } = useApp()
 
   const [industryQuery, setIndustryQuery] = useState(initialQuery)
   const [industryCode, setIndustryCode] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
   const [districtCode, setDistrictCode] = useState(initialDistrictCode)
   const [itemName, setItemName] = useState('')
   const [problem, setProblem] = useState('')
@@ -21,11 +21,19 @@ export default function OnboardingModal({ initialQuery = '', initialDistrictCode
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
 
-  const suggestions = useMemo(() => {
-    const q = industryQuery.trim().toLowerCase()
-    if (!q) return ALL_INDUSTRIES.slice(0, 6)
-    return ALL_INDUSTRIES.filter((i) => i.industryName.toLowerCase().includes(q)).slice(0, 6)
-  }, [industryQuery])
+  // 업종 목록은 실제 서울 매출데이터와 매핑된 코드만 유효하므로, 반드시 서버(또는 mock)의
+  // 0번 API(GET /api/industries)에서 받은 코드만 써야 한다 — 임의로 지어낸 코드는
+  // INDUSTRY_NOT_SUPPORTED(422)로 거부된다.
+  useEffect(() => {
+    const q = industryQuery.trim()
+    const timer = setTimeout(() => {
+      getIndustries(q || undefined).then((res) => {
+        const flat = res.groups.flatMap((g) => g.industries.map((i) => ({ ...i, largeCategory: g.largeCategory })))
+        setSuggestions(flat.slice(0, 8))
+      })
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [industryQuery, getIndustries])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useState } from 'react'
-import * as api from '../api/mockApi'
+import * as api from '../api'
 
 const AppContext = createContext(null)
 
