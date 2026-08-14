@@ -6,6 +6,8 @@ import Button from '../components/ui/Button'
 import RiskBadge from '../components/ui/RiskBadge'
 import ProgressBar from '../components/ui/ProgressBar'
 import { useApp } from '../context/AppContext'
+import { getAnalysisMeta } from '../lib/localMeta'
+import { gradeScore } from '../lib/riskGrader'
 
 const STATUS_LABEL = {
   COMPLETED: '분석 완료',
@@ -78,49 +80,54 @@ export default function Dashboard() {
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
-          {analyses.map((a) => (
-            <Card key={a.analysisId}>
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div>
-                  <p className="font-semibold text-[#14181a]">{a.itemName || a.industryName}</p>
-                  <p className="text-[12px] text-[#9aa39e]">
-                    {a.districtName} {a.industryName}
-                  </p>
+          {analyses.map((a) => {
+            const meta = getAnalysisMeta(a.analysisId)
+            return (
+              <Card key={a.analysisId}>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <div>
+                    <p className="font-semibold text-[#14181a]">{a.itemName}</p>
+                    {meta && (
+                      <p className="text-[12px] text-[#9aa39e]">
+                        {meta.districtName} · {meta.industryName}
+                      </p>
+                    )}
+                  </div>
+                  {a.status === 'COMPLETED' ? (
+                    <RiskBadge level={gradeScore('TOTAL', a.totalScore)} />
+                  ) : (
+                    <span className="text-[12px] text-[#9aa39e]">{STATUS_LABEL[a.status]}</span>
+                  )}
                 </div>
-                {a.status === 'COMPLETED' ? (
-                  <RiskBadge level={a.totalRisk} />
-                ) : (
-                  <span className="text-[12px] text-[#9aa39e]">{STATUS_LABEL[a.status]}</span>
-                )}
-              </div>
 
-              {a.status === 'COMPLETED' ? (
-                <>
-                  <p className="text-[30px] font-bold text-[#14181a] mt-2">
-                    {a.totalScore} <span className="text-[14px] text-[#9aa39e] font-normal">/ 100</span>
-                  </p>
-                  <ProgressBar percent={a.totalScore} className="mt-2 mb-3" />
-                  <div className="flex items-center justify-between">
-                    <p className="text-[12px] text-[#9aa39e]">
-                      {a.paymentStatus === 'PAID' ? '전체 열람' : '무료 · 총점만'}
+                {a.status === 'COMPLETED' ? (
+                  <>
+                    <p className="text-[30px] font-bold text-[#14181a] mt-2">
+                      {a.totalScore} <span className="text-[14px] text-[#9aa39e] font-normal">/ 100</span>
                     </p>
-                    <Link
-                      to={`/analyze/${a.analysisId}/result`}
-                      className="text-[13px] text-brand-700 font-medium underline"
-                    >
-                      결과 보기 →
+                    <ProgressBar percent={a.totalScore} className="mt-2 mb-3" />
+                    <div className="flex items-center justify-between">
+                      <p className="text-[12px] text-[#9aa39e]">
+                        {meta?.paid ? '전체 열람' : '무료 · 총점만'}
+                      </p>
+                      <Link
+                        to={`/analyze/${a.analysisId}/result`}
+                        className="text-[13px] text-brand-700 font-medium underline"
+                      >
+                        결과 보기 →
+                      </Link>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3">
+                    <Link to={`/analyze/${a.analysisId}/progress`} className="text-[13px] text-brand-700 underline">
+                      진단 진행 상황 보기 →
                     </Link>
                   </div>
-                </>
-              ) : (
-                <div className="mt-3">
-                  <Link to={`/analyze/${a.analysisId}/progress`} className="text-[13px] text-brand-700 underline">
-                    진단 진행 상황 보기 →
-                  </Link>
-                </div>
-              )}
-            </Card>
-          ))}
+                )}
+              </Card>
+            )
+          })}
         </div>
       )}
       <p className="text-[11px] text-[#9aa39e] mt-6">진단 결과는 90일간 보관됩니다.</p>

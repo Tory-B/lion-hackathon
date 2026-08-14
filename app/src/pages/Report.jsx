@@ -6,6 +6,9 @@ import Button from '../components/ui/Button'
 import RiskBadge from '../components/ui/RiskBadge'
 import ProgressBar from '../components/ui/ProgressBar'
 import { useApp } from '../context/AppContext'
+import { getAnalysisMeta } from '../lib/localMeta'
+import { gradeScore } from '../lib/riskGrader'
+import { computeEarned } from '../lib/factorWeights'
 
 const LAYER_ORDER = ['market', 'customer', 'competition']
 
@@ -30,6 +33,8 @@ export default function Report() {
 
   const layers = LAYER_ORDER.map((k) => diagnosis.layers[k])
   const today = new Date().toLocaleDateString('ko-KR')
+  const meta = getAnalysisMeta(id)
+  const totalRisk = gradeScore('TOTAL', diagnosis.totalScore)
 
   return (
     <AppShell crumb="리포트">
@@ -52,7 +57,7 @@ export default function Report() {
         </div>
         <p className="text-[11px] tracking-wide text-brand-300 mb-1">STARTUP RISK REPORT</p>
         <h1 className="text-[26px] font-bold mb-6 leading-snug">
-          {diagnosis.district.name} {diagnosis.industry.industryName} 창업 리스크 진단 리포트
+          {meta ? `${meta.districtName} ${meta.industryName}` : diagnosis.itemName} 창업 리스크 진단 리포트
         </h1>
         <div className="flex flex-wrap gap-10">
           <div>
@@ -63,7 +68,7 @@ export default function Report() {
           </div>
           <div>
             <p className="text-[11px] text-white/50 mb-1">등급</p>
-            <RiskBadge level={diagnosis.totalRisk} />
+            <RiskBadge level={totalRisk} />
           </div>
         </div>
       </Card>
@@ -90,21 +95,25 @@ export default function Report() {
             {idx + 1}. {l.layerName}
           </p>
           <ul className="flex flex-col gap-1.5">
-            {l.indicators.map((ind) => (
-              <li key={ind.key} className="text-[13px] text-[#4b5450] flex items-start gap-1.5">
-                <span className="text-brand-600 mt-0.5">✓</span>
-                <span>
-                  {ind.label} — 상위 {ind.topPercent}% ({ind.earned}/{ind.weight}점)
-                </span>
-              </li>
-            ))}
+            {l.factors.map((f) => {
+              const computed = computeEarned(f)
+              return (
+                <li key={f.factor} className="text-[13px] text-[#4b5450] flex items-start gap-1.5">
+                  <span className="text-brand-600 mt-0.5">✓</span>
+                  <span>
+                    {f.factor} — {f.percentile}
+                    {computed?.earned != null ? ` (${computed.earned}/${computed.weight}점)` : ''}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
         </Card>
       ))}
 
       <Card className="mb-5 !bg-brand-50 border-brand-200">
         <p className="font-semibold text-brand-900 mb-2">결론</p>
-        <p className="text-[13px] text-brand-900 leading-relaxed">{diagnosis.aiSummary}</p>
+        <p className="text-[13px] text-brand-900 leading-relaxed">{diagnosis.aiSummary || diagnosis.verdict}</p>
       </Card>
 
       <Card className="mb-5">

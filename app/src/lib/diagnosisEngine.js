@@ -1,5 +1,6 @@
-// API 명세서 "부록 · 점수와 등급 해석"을 그대로 반영한 mock 진단 생성기.
-// 지표 점수 = (1 - 상위백분위/100) × 배점. 점수는 소수점을 가질 수 있다.
+// 실제 백엔드(suyo_BE)의 DiagnosisScorer.java / AnalysisService.java를 그대로 옮긴 mock 진단 생성기.
+// 지표 점수 = (서울 분포에서의 백분위 순위 / 100) × 지표 배점. 점수는 소수점을 가질 수 있다.
+import { gradeScore } from './riskGrader'
 
 function seededRandom(seed) {
   let value = seed % 2147483647
@@ -23,157 +24,218 @@ function round1(n) {
   return Math.round(n * 10) / 10
 }
 
-// riskLevel 경계값 (API 명세서 부록 그대로)
-const THRESHOLDS = {
-  MARKET: { high: 15.6, medium: 21.6 },
-  CUSTOMER: { high: 18.9, medium: 24.9 },
-  COMPETITION: { high: 9.2, medium: 14.5 },
-  TOTAL: { high: 48.0, medium: 57.9 },
+function scorePoint(rand, weight) {
+  const upperPercent = Math.round(5 + rand() * 90) // 서울 상위 5%~95%
+  const earned = round1(weight * (1 - upperPercent / 100))
+  return { upperPercent, earned }
 }
 
-function riskLevelOf(layer, score) {
-  const t = THRESHOLDS[layer]
-  if (score < t.high) return 'HIGH'
-  if (score < t.medium) return 'MEDIUM'
-  return 'LOW'
+// DiagnosisScorer.java 그대로: L1=시장규모10+5년CAGR15+최근모멘텀5, L2=성별쏠림7+연령쏠림7+실수요증가율11+소비패턴안정성15,
+// L3=지역내동종업소수15+업종5년생존율15
+const LAYER_NAME = { MARKET: '시장 규모·성장률', CUSTOMER: '고객(타겟)', COMPETITION: '경쟁' }
+const DATA_SCOPE = {
+  MARKET: '서울시 전체 집계 (자치구 단위 아님)',
+  CUSTOMER: '서울 기준 업종 벤치마크',
+  COMPETITION: '해당 지역 실측',
+}
+const SUMMARY_TEMPLATE = {
+  LOW: (name) => `${name} 지표가 서울 평균보다 나은 편입니다.`,
+  MEDIUM: (name) => `${name} 지표가 서울 평균과 비슷한 수준입니다.`,
+  HIGH: (name) => `${name} 지표가 서울 평균보다 위험한 편입니다.`,
 }
 
-function scoreIndicator(rand, weight) {
-  const topPercent = Math.round(5 + rand() * 90) // 상위 5%~95%
-  const earned = round1(weight * (1 - topPercent / 100))
-  return { topPercent, earned }
+function scoreMarket(rand) {
+  const size = scorePoint(rand, 10)
+  const cagr = scorePoint(rand, 15)
+  const momentum = scorePoint(rand, 5)
+  const score = round1(size.earned + cagr.earned + momentum.earned)
+  const marketSizeAmount = Math.round(3000 + rand() * 30000)
+  const cagrPercent = round1(-3 + rand() * 10)
+  const momentumPercent = round1(-2 + rand() * 6)
+  const factors = [
+    {
+      factor: '시장 규모(최근 4분기 매출)',
+      value: `${(marketSizeAmount * 100_000_000).toLocaleString()}원`,
+      percentile: `서울 상위 ${size.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '최근 4분기',
+      confidenceStatus: 'CONFIRMED',
+    },
+    {
+      factor: '5년 연평균 성장률(CAGR)',
+      value: `${cagrPercent >= 0 ? '+' : ''}${cagrPercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${cagr.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '2021~2026',
+      confidenceStatus: 'CONFIRMED',
+    },
+    {
+      factor: '최근 모멘텀(최근1년-CAGR)',
+      value: `${momentumPercent >= 0 ? '+' : ''}${momentumPercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${momentum.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '최근 1년',
+      confidenceStatus: 'CONFIRMED',
+    },
+  ]
+  return { score, maxScore: 30, factors }
 }
 
-// BE 파트 문서(레이어_점수산출_설계서)의 실제 지표·배점을 그대로 반영.
-// L1: 시장규모10 · 5년CAGR15 · 최근모멘텀5 (= 30)
-// L2: API 명세서 v3에 따라 성별분산·연령분산·실수요증가율·소비패턴안정성을
-//     28점→40점으로 비례 확대(7/7/11/15)해 처음부터 40점 전부 산출한다.
-// L3: 점포당 유동인구15 · 업종5년생존율15 (= 30)
-const MARKET_INDICATORS = [
-  { key: 'marketSize', label: '시장 규모', weight: 10 },
-  { key: 'cagr', label: '5년 CAGR', weight: 15 },
-  { key: 'momentum', label: '최근 모멘텀', weight: 5 },
-]
+function scoreCustomer(rand) {
+  const gender = scorePoint(rand, 7)
+  const age = scorePoint(rand, 7)
+  const demand = scorePoint(rand, 11)
+  const weekend = scorePoint(rand, 15)
+  const score = round1(gender.earned + age.earned + demand.earned + weekend.earned)
+  const genderPercent = round1(30 + rand() * 40)
+  const agePercent = round1(15 + rand() * 30)
+  const demandPercent = round1(-3 + rand() * 10)
+  const weekendPercent = round1(30 + rand() * 40)
+  const factors = [
+    {
+      factor: '성별 쏠림',
+      value: `${genderPercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${gender.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '최근 분기',
+      confidenceStatus: 'CONFIRMED',
+    },
+    {
+      factor: '연령 쏠림',
+      value: `${agePercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${age.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '최근 분기',
+      confidenceStatus: 'CONFIRMED',
+    },
+    {
+      factor: '실수요 증가율(매출건수 CAGR)',
+      value: `${demandPercent >= 0 ? '+' : ''}${demandPercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${demand.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '2021~2026',
+      confidenceStatus: 'CONFIRMED',
+    },
+    {
+      factor: '소비패턴 안정성(주말비중)',
+      value: `${weekendPercent.toFixed(1)}%`,
+      percentile: `서울 상위 ${weekend.upperPercent}%`,
+      storeCount: null,
+      source: '서울시 상권분석서비스',
+      referenceDate: '최근 분기',
+      confidenceStatus: 'CONFIRMED',
+    },
+  ]
+  return { score, maxScore: 40, factors }
+}
 
-const CUSTOMER_INDICATORS = [
-  { key: 'genderSpread', label: '성별 분산', weight: 7 },
-  { key: 'ageSpread', label: '연령 분산', weight: 7 },
-  { key: 'demandGrowthRate', label: '실수요 증가율', weight: 11 },
-  { key: 'spendingStability', label: '소비패턴 안정성', weight: 15 },
-]
+function scoreCompetition(rand) {
+  const storeCount = Math.round(5 + rand() * 700)
+  const lowSample = storeCount < 10
+  const survival5y = round1(20 + rand() * 55)
 
-const COMPETITION_INDICATORS = [
-  { key: 'flowPerStore', label: '점포당 유동인구', weight: 15 },
-  { key: 'survivalRate', label: '업종 5년 생존율', weight: 15 },
-]
+  let densityEarned
+  let densityPercentileText
+  let densityConfidence
+  if (lowSample) {
+    densityEarned = round1(15 * 0.5)
+    densityPercentileText = `표본 적음(점포 ${storeCount}개)`
+    densityConfidence = 'LOW_SAMPLE'
+  } else {
+    const density = scorePoint(rand, 15)
+    densityEarned = density.earned
+    densityPercentileText = `서울 상위 ${density.upperPercent}%`
+    densityConfidence = 'CONFIRMED'
+  }
+  const survival = scorePoint(rand, 15)
+  const score = round1(densityEarned + survival.earned)
 
-function buildLayer(layerKey, layerName, indicators, rand, storeCount) {
-  const rows = indicators.map((ind) => {
-    const { topPercent, earned } = scoreIndicator(rand, ind.weight)
-    const lowSample = ind.key === 'flowPerStore' && storeCount < 10
-    return {
-      ...ind,
-      topPercent,
-      earned,
-      confidenceStatus: lowSample ? 'LOW_SAMPLE' : 'CONFIRMED',
-    }
-  })
-  const score = round1(rows.reduce((sum, r) => sum + r.earned, 0))
+  const factors = [
+    {
+      factor: '지역 내 동종 업소 수',
+      value: `${storeCount}개`,
+      percentile: densityPercentileText,
+      storeCount,
+      source: '소상공인시장진흥공단 상가정보',
+      referenceDate: '2026년 6월',
+      confidenceStatus: densityConfidence,
+    },
+    {
+      factor: '업종 5년 생존율',
+      value: `${survival5y}%`,
+      percentile: `서울 상위 ${survival.upperPercent}%`,
+      storeCount: null,
+      source: '국가데이터처 기업생멸행정통계',
+      referenceDate: '2023p',
+      confidenceStatus: 'CONFIRMED',
+    },
+  ]
+  return { score, maxScore: 30, factors }
+}
+
+// AnalysisService.buildVerdict()와 동일한 규칙.
+function buildVerdict(market, customer, competition) {
+  const risks = [
+    { name: LAYER_NAME.MARKET, level: gradeScore('MARKET', market.score) },
+    { name: LAYER_NAME.CUSTOMER, level: gradeScore('CUSTOMER', customer.score) },
+    { name: LAYER_NAME.COMPETITION, level: gradeScore('COMPETITION', competition.score) },
+  ]
+  const notLow = risks.filter((r) => r.level !== 'LOW')
+  if (notLow.length === 0) return '전반적으로 서울 평균보다 양호합니다'
+  const riskText = (level) => (level === 'HIGH' ? '위험' : '보통')
+  if (notLow.length === 1) {
+    return `${notLow[0].name} ${riskText(notLow[0].level)} — 나머지는 양호`
+  }
+  return notLow.map((r) => `${r.name} ${riskText(r.level)}`).join(', ')
+}
+
+function toLayerResponse(layerKey, built) {
+  const riskLevel = gradeScore(layerKey, built.score)
   return {
     layer: layerKey,
-    layerName,
-    score,
-    maxScore: indicators.reduce((s, i) => s + i.weight, 0),
-    riskLevel: riskLevelOf(layerKey, score),
-    indicators: rows,
+    layerName: LAYER_NAME[layerKey],
+    score: built.score,
+    maxScore: built.maxScore,
+    riskLevel,
+    dataScope: DATA_SCOPE[layerKey],
+    summary: SUMMARY_TEMPLATE[riskLevel](LAYER_NAME[layerKey]),
+    factors: built.factors,
   }
 }
 
-const RISK_LABEL = { LOW: '서울 평균보다 나은 편', MEDIUM: '서울 평균과 비슷한 편', HIGH: '서울 평균보다 낮은 편' }
-
-export function generateDiagnosis({ itemName, industry, problem, targetCustomer, district }) {
-  const seed = hashString(itemName + industry.industryCode + district.code + problem)
+export function generateDiagnosis({ itemName, industryCode, problem, targetCustomer, districtCode }) {
+  const seed = hashString(itemName + industryCode + districtCode + problem)
   const rand = seededRandom(seed)
 
-  const storeCount = Math.round(30 + rand() * 700)
+  const marketBuilt = scoreMarket(rand)
+  const customerBuilt = scoreCustomer(rand)
+  const competitionBuilt = scoreCompetition(rand)
 
-  const market = buildLayer('MARKET', '시장 규모·성장률', MARKET_INDICATORS, rand, storeCount)
-  const customer = buildLayer('CUSTOMER', '고객(타겟)', CUSTOMER_INDICATORS, rand, storeCount)
-  const competition = buildLayer('COMPETITION', '경쟁', COMPETITION_INDICATORS, rand, storeCount)
-  competition.storeCount = storeCount
+  const market = toLayerResponse('MARKET', marketBuilt)
+  const customer = toLayerResponse('CUSTOMER', customerBuilt)
+  const competition = toLayerResponse('COMPETITION', competitionBuilt)
 
   const totalScore = round1(market.score + customer.score + competition.score)
-  const totalRisk = riskLevelOf('TOTAL', totalScore)
+  const totalRisk = gradeScore('TOTAL', totalScore)
+  const verdict = buildVerdict(market, customer, competition)
 
-  const layers = [market, customer, competition]
-  const worst = [...layers].sort((a, b) => {
-    const order = { HIGH: 0, MEDIUM: 1, LOW: 2 }
-    return order[a.riskLevel] - order[b.riskLevel]
-  })[0]
+  const confirmedEvidences = [market, customer, competition].flatMap((l) =>
+    l.factors
+      .filter((f) => f.confidenceStatus === 'CONFIRMED')
+      .map((f) => ({ layer: l.layer, factor: f.factor, value: f.value, source: f.source, referenceDate: f.referenceDate })),
+  )
 
-  const verdict = `${worst.layerName} ${RISK_LABEL[worst.riskLevel]} — 나머지는 양호`
-
-  const marketSizeAmount = Math.round(3000 + rand() * 30000) // 억원
-  const cagr = round1(-3 + rand() * 10)
-  const avgPayment = Math.round(4000 + rand() * 15000)
-  const survival = round1(20 + rand() * 55)
-  const flowPerStore = Math.round(500 + rand() * 3000)
-
-  const confirmedEvidences = [
-    {
-      layer: 'MARKET',
-      factor: '시장 규모',
-      value: `연 ${marketSizeAmount.toLocaleString()}억원`,
-      percentile: `서울 63개 업종 중 상위 ${market.indicators[0].topPercent}%`,
-      source: '서울시 상권분석서비스',
-      referenceDate: '2026년 1분기',
-    },
-    {
-      layer: 'MARKET',
-      factor: '최근 5년 연평균 성장률(CAGR)',
-      value: `${cagr >= 0 ? '+' : ''}${cagr}%`,
-      percentile: `서울 상위 ${market.indicators[1].topPercent}%`,
-      source: '서울시 상권분석서비스',
-      referenceDate: '2021~2026',
-    },
-    {
-      layer: 'CUSTOMER',
-      factor: '건당 평균 결제액 (참고용, 점수화되지 않음)',
-      value: `${avgPayment.toLocaleString()}원`,
-      source: '서울시 상권분석서비스',
-      referenceDate: '2026년 1분기',
-    },
-    {
-      layer: 'COMPETITION',
-      factor: '점포당 유동인구',
-      value: `일평균 ${flowPerStore.toLocaleString()}명 (${storeCount}개 점포 기준)`,
-      percentile: `서울 상위 ${competition.indicators[0].topPercent}%`,
-      source: '상가정보 + 서울시 상권분석서비스(길단위인구)',
-      referenceDate: '2026년 1분기',
-    },
-    {
-      layer: 'COMPETITION',
-      factor: '업종 5년 생존율',
-      value: `${survival}%`,
-      percentile: `서울 상위 ${competition.indicators[1].topPercent}%`,
-      source: '국가데이터처 기업생멸행정통계',
-      referenceDate: '2023p',
-    },
+  // AnalysisService.create()와 동일: CUSTOMER 레이어에 고정 2개 가설만 생성.
+  const unverifiedHypotheses = [
+    { hypothesisId: 1, layer: 'CUSTOMER', description: `"${problem}"이(가) 실제 구매로 이어지는지 아직 검증되지 않았습니다.`, needsVerification: true },
+    { hypothesisId: 2, layer: 'CUSTOMER', description: `"${targetCustomer}"이(가) 비용을 지불할 의사가 있는지 아직 검증되지 않았습니다.`, needsVerification: true },
   ]
-
-  const hypothesesPool = [
-    { layer: 'CUSTOMER', description: `${targetCustomer || '주 타겟 고객'}이 "${problem}"을 얼마나 자주 겪는지는 데이터로 확인되지 않습니다.` },
-    { layer: 'CUSTOMER', description: `실제로 비용을 지불할 의사가 있는지는 아직 확인되지 않았습니다.` },
-    { layer: 'CUSTOMER', description: `기존 대안 대비 "${itemName}"을 선택할 이유가 명확한지 확인이 필요합니다.` },
-    { layer: 'MARKET', description: `최근 1년 성장 정체가 일시적인지 추세 전환인지는 추가 확인이 필요합니다.` },
-  ]
-
-  const unverifiedHypotheses = hypothesesPool.map((h, idx) => ({
-    hypothesisId: idx + 1,
-    layer: h.layer,
-    description: h.description,
-    needsVerification: true,
-  }))
 
   return {
     itemName,
@@ -181,10 +243,9 @@ export function generateDiagnosis({ itemName, industry, problem, targetCustomer,
     totalRisk,
     verdict,
     dataCoverage: 'FULL',
-    aiSummary: `시장은 5년간 ${cagr >= 0 ? '꾸준히 커졌지만' : '정체됐고'} 최근 1년 모멘텀은 ${market.indicators[2].earned < market.indicators[2].weight * 0.5 ? '둔화됐고' : '유지되고 있고'}, ${district.name}은 점포당 유동인구가 서울 상위 ${competition.indicators[0].topPercent}%입니다. 종합 판정은 '${worst.layerName}' 레이어가 상대적으로 가장 낮은 등급이라 그렇게 매겨졌습니다.`,
+    aiSummary: null,
     layers: { market, customer, competition },
     confirmedEvidences,
     unverifiedHypotheses,
-    meta: { district, industry, storeCount, flowPerStore },
   }
 }

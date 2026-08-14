@@ -5,6 +5,7 @@
 import { generateDiagnosis } from '../lib/diagnosisEngine'
 import { buildQuestionnaire } from '../lib/questionnaireEngine'
 import { getSessionId } from '../lib/session'
+import { saveAnalysisMeta, markAnalysisPaid } from '../lib/localMeta'
 import { ALL_INDUSTRIES, INDUSTRY_GROUPS } from '../data/industries'
 import { DISTRICTS } from '../data/districts'
 
@@ -69,10 +70,10 @@ export async function createAnalysis(payload) {
   const analysisId = analysisIdSeq++
   const diagnosis = generateDiagnosis({
     itemName,
-    industry,
+    industryCode: industry.industryCode,
+    districtCode: district.code,
     problem,
     targetCustomer,
-    district,
   })
 
   const autoCredit = hasValidCredit()
@@ -96,6 +97,13 @@ export async function createAnalysis(payload) {
     sessionId: getSessionId(),
   }
   db.analyses.set(analysisId, record)
+
+  // 실제 API 응답에는 지역·업종명이 없어서(itemName만 옴), 화면 표시용으로 로컬에만 남겨둔다.
+  saveAnalysisMeta(analysisId, {
+    districtName: district.name,
+    industryName: industry.industryName,
+    paid: autoCredit,
+  })
 
   // 진행중 폴링용 단계 메시지를 남겨두고, 곧 COMPLETED로 전환
   record._steps = [
@@ -131,14 +139,11 @@ export async function listAnalyses() {
     .filter((a) => a.sessionId === sessionId)
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
     .map((a) => ({
+      // AnalysisListItemResponse.java와 동일한 필드만 (industryName/districtName/paymentStatus 없음)
       analysisId: a.analysisId,
       itemName: a.itemName,
-      industryName: a.industry.industryName,
-      districtName: a.district.name,
       status: a.status,
-      paymentStatus: a.paymentStatus,
       totalScore: a.status === 'COMPLETED' ? a.diagnosis.totalScore : null,
-      totalRisk: a.status === 'COMPLETED' ? a.diagnosis.totalRisk : null,
       verdict: a.status === 'COMPLETED' ? a.diagnosis.verdict : null,
       createdAt: a.createdAt,
     }))
@@ -166,18 +171,23 @@ export async function getDiagnosis(id) {
   if (record.status !== 'COMPLETED') {
     throw new ApiError('ANALYSIS_NOT_COMPLETED', '진단이 아직 끝나지 않았습니다.', 409)
   }
+  const paid = record.paymentStatus === 'PAID'
+  // AnalysisService.toLayerResponse(): FREE면 factors/summary를 아예 내려주지 않는다 (블러가 아니라 미전송).
+  const gate = (layer) => (paid ? layer : { ...layer, summary: null, factors: null })
+
   return {
     analysisId: id,
     itemName: record.itemName,
-    district: record.district,
-    industry: record.industry,
     totalScore: record.diagnosis.totalScore,
-    totalRisk: record.diagnosis.totalRisk,
     verdict: record.diagnosis.verdict,
-    accessLevel: record.paymentStatus === 'PAID' ? 'PAID' : 'FREE',
+    accessLevel: paid ? 'PAID' : 'FREE',
     aiSummary: record.diagnosis.aiSummary,
     dataCoverage: record.diagnosis.dataCoverage,
-    layers: record.diagnosis.layers,
+    layers: {
+      market: gate(record.diagnosis.layers.market),
+      customer: gate(record.diagnosis.layers.customer),
+      competition: gate(record.diagnosis.layers.competition),
+    },
     createdAt: record.createdAt,
   }
 }
@@ -226,6 +236,7 @@ export async function createPayment(id, { plan, paymentMethod }) {
   const record = mustGet(id)
   const amount = plan === 'PACK3' ? 24900 : 9900
   record.paymentStatus = 'PAID'
+  markAnalysisPaid(id)
 
   let remainingCredits = 0
   let expiresAt = null

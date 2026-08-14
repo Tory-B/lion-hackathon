@@ -6,6 +6,9 @@ import Button from '../components/ui/Button'
 import RiskBadge from '../components/ui/RiskBadge'
 import ConfidenceTag from '../components/ui/ConfidenceTag'
 import { useApp } from '../context/AppContext'
+import { getAnalysisMeta } from '../lib/localMeta'
+import { gradeScore } from '../lib/riskGrader'
+import { computeEarned } from '../lib/factorWeights'
 
 const LAYER_ORDER = ['market', 'customer', 'competition']
 
@@ -30,9 +33,7 @@ function LayerCard({ layer, locked, expanded, onToggle }) {
         <p className={`text-[26px] font-bold text-[#14181a] ${locked ? 'blur-sm select-none' : ''}`}>
           {layer.score} <span className="text-[14px] text-[#9aa39e] font-normal">/ {layer.maxScore}</span>
         </p>
-        {!locked && (
-          <p className="text-[12px] text-brand-700 mt-1">{expanded ? '접기 ▲' : '산출 근거 ▼'}</p>
-        )}
+        {!locked && <p className="text-[12px] text-brand-700 mt-1">{expanded ? '접기 ▲' : '산출 근거 ▼'}</p>}
       </button>
     </Card>
   )
@@ -41,56 +42,64 @@ function LayerCard({ layer, locked, expanded, onToggle }) {
 function LayerBreakdown({ layer }) {
   return (
     <Card className="border-brand-300">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-1">
         <p className="font-semibold text-[#14181a]">
           {layer.layerName} — 왜 {layer.maxScore}점 중 {layer.score}점인가
         </p>
         <RiskBadge level={layer.riskLevel} />
       </div>
-      <p className="text-[12px] text-[#6b7570] mb-3">
-        각 지표를 서울 전체 분포의 백분위로 바꿔 배점에 곱했습니다.
-      </p>
+      <p className="text-[12px] text-[#6b7570] mb-3">{layer.summary}</p>
       <div className="overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr className="text-left text-[#9aa39e] text-[11px]">
               <th className="font-normal pb-2">세부 지표</th>
+              <th className="font-normal pb-2">값</th>
               <th className="font-normal pb-2">배점</th>
               <th className="font-normal pb-2">백분위</th>
               <th className="font-normal pb-2">획득</th>
-              <th className="font-normal pb-2">계산 근거</th>
             </tr>
           </thead>
           <tbody>
-            {layer.indicators.map((ind) => (
-              <tr key={ind.key} className="border-t border-[#eef1ef]">
-                <td className="py-2 pr-3 font-medium text-[#14181a] whitespace-nowrap">{ind.label}</td>
-                <td className="py-2 pr-3 text-[#6b7570]">{ind.weight}</td>
-                <td className="py-2 pr-3">
-                  {ind.confidenceStatus === 'LOW_SAMPLE' ? (
-                    <ConfidenceTag status="LOW_SAMPLE" />
-                  ) : (
-                    <span className="text-[#6b7570]">상위 {ind.topPercent}%</span>
-                  )}
-                </td>
-                <td className="py-2 pr-3 font-semibold text-[#14181a]">
-                  {ind.earned} <span className="text-[#9aa39e] font-normal">/ {ind.weight}</span>
-                </td>
-                <td className="py-2 text-[#6b7570]">
-                  상위 {ind.topPercent}% → {ind.weight} × {(1 - ind.topPercent / 100).toFixed(2)} = {ind.earned}
-                </td>
-              </tr>
-            ))}
+            {layer.factors.map((f) => {
+              const computed = computeEarned(f)
+              return (
+                <tr key={f.factor} className="border-t border-[#eef1ef]">
+                  <td className="py-2 pr-3 font-medium text-[#14181a] whitespace-nowrap">{f.factor}</td>
+                  <td className="py-2 pr-3 text-[#6b7570]">{f.value}</td>
+                  <td className="py-2 pr-3 text-[#6b7570]">{computed?.weight ?? '—'}</td>
+                  <td className="py-2 pr-3">
+                    {f.confidenceStatus === 'LOW_SAMPLE' ? (
+                      <ConfidenceTag status="LOW_SAMPLE" />
+                    ) : (
+                      <span className="text-[#6b7570]">{f.percentile}</span>
+                    )}
+                  </td>
+                  <td className="py-2 font-semibold text-[#14181a]">
+                    {computed?.earned != null ? (
+                      <>
+                        {computed.earned} <span className="text-[#9aa39e] font-normal">/ {computed.weight}</span>
+                      </>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
             <tr className="border-t border-[#e2e6e3] font-semibold text-[#14181a]">
               <td className="py-2">합계</td>
+              <td />
               <td className="py-2">{layer.maxScore}</td>
-              <td className="py-2">—</td>
+              <td />
               <td className="py-2">{layer.score}</td>
-              <td className="py-2 text-[12px] font-normal text-[#9aa39e]">반올림해 {Math.round(layer.score)}점</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <p className="text-[11px] text-[#9aa39e] mt-3">
+        출처: {layer.factors[0]?.source} · 기준 시점: {layer.factors[0]?.referenceDate}
+      </p>
     </Card>
   )
 }
@@ -116,18 +125,19 @@ export default function DiagnosisResult() {
     )
   }
 
+  const meta = getAnalysisMeta(id)
   const locked = diagnosis.accessLevel === 'FREE'
   const layers = LAYER_ORDER.map((k) => diagnosis.layers[k])
+  const totalRisk = gradeScore('TOTAL', diagnosis.totalScore)
+  const title = meta ? `${meta.districtName} · ${meta.industryName}` : diagnosis.itemName
 
   return (
-    <AppShell crumb={`${diagnosis.industry.industryName} · ${diagnosis.district.name}`}>
+    <AppShell crumb={title}>
       <Card className="!bg-ink-900 text-white mb-4">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
             <div className="flex items-center gap-2 text-[13px] text-white/60 mb-1">
-              <span>
-                서울 {diagnosis.district.name} · {diagnosis.industry.industryName}
-              </span>
+              <span>{meta ? `서울 ${meta.districtName} · ${meta.industryName}` : diagnosis.itemName}</span>
               {!locked && (
                 <span className="inline-flex items-center h-5 px-2 rounded bg-white/10 text-[11px]">전체 열람</span>
               )}
@@ -137,12 +147,12 @@ export default function DiagnosisResult() {
               <span className="text-[18px] text-white/50 font-normal"> / 100</span>
             </p>
             <div className="flex items-center gap-2 mt-2">
-              <RiskBadge level={diagnosis.totalRisk} />
+              <RiskBadge level={totalRisk} />
               <span className="text-[12px] text-white/60">서울 2,395개 조합 중 상대 위치</span>
             </div>
           </div>
           <div className="max-w-[380px]">
-            <p className="font-semibold mb-1">{locked ? '고객 검증 부족' : diagnosis.verdict}</p>
+            <p className="font-semibold mb-1">{diagnosis.verdict}</p>
             <p className="text-[12px] text-white/70 leading-relaxed">
               등급은 서울 2,395개 업종×지역 조합의 점수 분포를 3등분한 상대 위치입니다. &quot;안전&quot;이 절대적으로
               안전하다는 뜻은 아닙니다.
@@ -167,7 +177,7 @@ export default function DiagnosisResult() {
               <ConfidenceTag status="CONFIRMED" /> 실측 — 상권·통계 데이터에서 그대로 읽은 값
             </span>
             <span className="inline-flex items-center gap-1">
-              <ConfidenceTag status="APPROXIMATE" /> 추론 — 유사기업에서 끌어온 값
+              <ConfidenceTag status="LOW_SAMPLE" /> 표본 적음 — 참고용으로만 해석
             </span>
             <span className="inline-flex items-center gap-1">
               <ConfidenceTag status="INSUFFICIENT_DATA" /> 빈칸 — 설문으로 메워야 하는 것
