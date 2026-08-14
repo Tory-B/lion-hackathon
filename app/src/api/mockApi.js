@@ -230,6 +230,25 @@ export async function getQuestionnaire(id, questionnaireId) {
   return q
 }
 
+// ── 사이드바 "설문지" 메뉴용 (실제 API에는 없는, 세션 내 전체 질문지 목록 — 프론트 전용 집계) ──────────
+export async function listAllQuestionnaires() {
+  await delay(200)
+  const sessionId = getSessionId()
+  return [...db.analyses.values()]
+    .filter((a) => a.sessionId === sessionId)
+    .flatMap((a) =>
+      a.questionnaires.map((q) => ({
+        analysisId: a.analysisId,
+        itemName: a.itemName,
+        questionnaireId: q.questionnaireId,
+        type: q.type,
+        itemCount: q.items.length,
+        createdAt: q.createdAt,
+      })),
+    )
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
 // ── 10. 결제 (목업) ──────────────────────────────
 export async function createPayment(id, { plan, paymentMethod }) {
   await delay(900)

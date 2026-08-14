@@ -6,9 +6,9 @@ import Button from '../components/ui/Button'
 import { useApp } from '../context/AppContext'
 
 export default function Questionnaire() {
-  const { id } = useParams()
+  const { id, qid } = useParams()
   const navigate = useNavigate()
-  const { getEvidence, createQuestionnaire, getDiagnosis } = useApp()
+  const { getEvidence, createQuestionnaire, getDiagnosis, getQuestionnaire } = useApp()
   const [hypotheses, setHypotheses] = useState([])
   const [itemName, setItemName] = useState('')
   const [selected, setSelected] = useState([])
@@ -19,13 +19,21 @@ export default function Questionnaire() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
+    getDiagnosis(id)
+      .then((d) => setItemName(d.itemName))
+      .catch(() => {})
+
+    if (qid) {
+      // 사이드바 "설문지" 목록 등에서 이미 만든 질문지를 다시 볼 때
+      getQuestionnaire(id, qid).then(setQuestionnaire)
+      return
+    }
     getEvidence(id).then((ev) => {
       setHypotheses(ev.unverifiedHypotheses)
       setSelected(ev.unverifiedHypotheses.map((h) => h.hypothesisId))
       setLoaded(true)
     })
-    getDiagnosis(id).then((d) => setItemName(d.itemName))
-  }, [id, getEvidence, getDiagnosis])
+  }, [id, qid, getEvidence, getDiagnosis, getQuestionnaire])
 
   const toggle = (hid) => {
     setSelected((prev) => (prev.includes(hid) ? prev.filter((x) => x !== hid) : [...prev, hid]))
@@ -64,6 +72,7 @@ export default function Questionnaire() {
           </Button>
         </div>
         <p className="text-[13px] text-[#6b7570] mb-6">
+          {itemName && <span className="font-medium text-[#4b5450]">{itemName} · </span>}
           비어 있던 미충족 니즈를 그대로 질문으로 옮겼습니다. 배포와 응답 수집은 직접 하시면 됩니다.
         </p>
 

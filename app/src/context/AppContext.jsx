@@ -32,6 +32,7 @@ export function AppProvider({ children }) {
     createQuestionnaire: api.createQuestionnaire,
     getQuestionnaire: api.getQuestionnaire,
     createPayment: api.createPayment,
+    listAllQuestionnaires: api.listAllQuestionnaires,
   }
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>
