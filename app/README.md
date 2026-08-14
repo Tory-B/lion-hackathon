@@ -81,6 +81,28 @@ src/
 - "세션이 만든 질문지 전체 목록" 엔드포인트가 없어서, 질문지를 생성할 때마다 `localMeta.js`에 직접 색인해서 사이드바 "설문지" 메뉴에 씁니다.
 - "아이템 비교" 화면도 마찬가지로 전용 엔드포인트가 없어, 아이템별 `getDiagnosis` 호출을 프론트에서 조합해 만든 기능입니다.
 
+## Vercel 배포
+
+`vercel.json`에 두 가지가 설정되어 있습니다.
+
+1. `/api/*` → `https://api.suyo-deploy.shop/api/*` 리라이트. 로컬 개발할 때 쓰는 Vite 프록시와
+   같은 역할로, 배포 후에도 `realApi.js`가 상대경로(`/api/...`)로 호출하기만 하면 Vercel이
+   서버 쪽에서 대신 백엔드로 넘겨줍니다. 이론상 이것으로 CORS 문제 없이 실제 API를 바로 쓸 수
+   있어야 하는데, **Vercel의 리라이트가 브라우저의 `Origin` 헤더를 그대로 넘기는지는 아직
+   실제 배포해서 확인하지 못했습니다.** 로컬에서는 Origin 헤더 때문에 막혀서 Vite 프록시에서
+   직접 헤더를 제거해야 했는데, Vercel 리라이트는 그런 훅을 걸 수 있는 구조가 아닙니다. 만약
+   배포 후에도 403이 뜨면, 백엔드 팀에 배포된 Vercel 도메인을 CORS 허용 목록에 추가해달라고
+   요청해야 합니다.
+2. 나머지 모든 경로 → `/index.html`. React Router로 클라이언트 사이드 라우팅을 하기 때문에,
+   이 설정이 없으면 `/analyze/3/result` 같은 하위 경로를 새로고침했을 때 Vercel이 404를 냅니다.
+
+**Vercel 프로젝트 설정 시:**
+- Root Directory를 `app`으로 지정 (모노레포처럼 이 폴더만 프론트엔드 프로젝트)
+- Framework Preset: Vite (자동 인식됨, Build Command `npm run build`, Output Directory `dist`)
+- 배포된 사이트에서 실제 API를 기본값으로 쓰려면 Vercel 프로젝트의 Environment Variables에
+  `VITE_USE_REAL_API=true` 추가 (안 하면 mock으로 배포됨 — 그것도 유효한 선택지입니다, 팀원들이
+  화면 구조만 빠르게 훑어보기엔 mock이 오히려 안정적입니다)
+
 ## 알려진 미완성 부분
 
 - 사이드바의 "아이템 비교"는 BETA 표기 그대로 — 실제 백엔드 지원 없이 프론트에서만 조합한 기능이라 정식 기능은 아닙니다.
