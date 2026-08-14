@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import RiskBadge from '../components/ui/RiskBadge'
 import ProgressBar from '../components/ui/ProgressBar'
+import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 import { getAnalysisMeta } from '../lib/localMeta'
 import { gradeScore } from '../lib/riskGrader'
@@ -14,19 +15,45 @@ const LAYER_ORDER = ['market', 'customer', 'competition']
 
 export default function Report() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { getDiagnosis, getEvidence } = useApp()
   const [diagnosis, setDiagnosis] = useState(null)
   const [evidence, setEvidence] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    getDiagnosis(id).then(setDiagnosis)
-    getEvidence(id).then(setEvidence)
+    Promise.all([getDiagnosis(id), getEvidence(id)])
+      .then(([d, e]) => {
+        setDiagnosis(d)
+        setEvidence(e)
+      })
+      .catch(setError)
   }, [id, getDiagnosis, getEvidence])
+
+  if (error) {
+    return (
+      <AppShell crumb="리포트">
+        <ErrorState error={error} />
+      </AppShell>
+    )
+  }
 
   if (!diagnosis || !evidence) {
     return (
       <AppShell crumb="리포트">
         <p className="text-[13px] text-[#9aa39e]">불러오는 중…</p>
+      </AppShell>
+    )
+  }
+
+  if (diagnosis.accessLevel === 'FREE') {
+    return (
+      <AppShell crumb="리포트">
+        <Card className="text-center py-14">
+          <p className="font-semibold text-[#14181a] mb-2">결제 후 열람할 수 있는 리포트입니다</p>
+          <p className="text-[13px] text-[#6b7570] mb-5">레이어 상세와 근거는 결제하면 바로 열립니다.</p>
+          <Button onClick={() => navigate(`/analyze/${id}/payment`)}>9,900원으로 전체 열기</Button>
+        </Card>
       </AppShell>
     )
   }

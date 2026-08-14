@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import RiskBadge from '../components/ui/RiskBadge'
 import ConfidenceTag from '../components/ui/ConfidenceTag'
+import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 import { getAnalysisMeta } from '../lib/localMeta'
 import { gradeScore } from '../lib/riskGrader'
@@ -49,7 +50,45 @@ function LayerBreakdown({ layer }) {
         <RiskBadge level={layer.riskLevel} />
       </div>
       <p className="text-[12px] text-[#6b7570] mb-3">{layer.summary}</p>
-      <div className="overflow-x-auto">
+
+      {/* 좁은 화면: 카드형. 5개 컬럼 표는 모바일에서 가로 스크롤 안쪽에 값이 가려지기 쉬워 따로 둔다. */}
+      <div className="flex flex-col gap-2 sm:hidden">
+        {layer.factors.map((f) => {
+          const computed = computeEarned(f)
+          return (
+            <div key={f.factor} className="border border-[#eef1ef] rounded-lg px-3 py-2.5">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-[13px] font-medium text-[#14181a]">{f.factor}</p>
+                <p className="text-[13px] font-semibold text-[#14181a] shrink-0">
+                  {computed?.earned != null ? (
+                    <>
+                      {computed.earned}
+                      <span className="text-[#9aa39e] font-normal">/{computed.weight}</span>
+                    </>
+                  ) : (
+                    '—'
+                  )}
+                </p>
+              </div>
+              <p className="text-[12px] text-[#6b7570] mb-1">{f.value}</p>
+              {f.confidenceStatus === 'LOW_SAMPLE' ? (
+                <ConfidenceTag status="LOW_SAMPLE" />
+              ) : (
+                <p className="text-[11px] text-[#9aa39e]">{f.percentile}</p>
+              )}
+            </div>
+          )
+        })}
+        <div className="flex items-center justify-between px-1 pt-1 text-[13px] font-semibold text-[#14181a]">
+          <span>합계</span>
+          <span>
+            {layer.score} <span className="text-[#9aa39e] font-normal">/ {layer.maxScore}</span>
+          </span>
+        </div>
+      </div>
+
+      {/* 넓은 화면: 표 */}
+      <div className="hidden sm:block overflow-x-auto">
         <table className="w-full text-[13px]">
           <thead>
             <tr className="text-left text-[#9aa39e] text-[11px]">
@@ -111,11 +150,24 @@ export default function DiagnosisResult() {
   const [diagnosis, setDiagnosis] = useState(null)
   const [evidence, setEvidence] = useState(null)
   const [expandedLayer, setExpandedLayer] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    getDiagnosis(id).then(setDiagnosis)
-    getEvidence(id).then(setEvidence)
+    Promise.all([getDiagnosis(id), getEvidence(id)])
+      .then(([d, e]) => {
+        setDiagnosis(d)
+        setEvidence(e)
+      })
+      .catch(setError)
   }, [id, getDiagnosis, getEvidence])
+
+  if (error) {
+    return (
+      <AppShell crumb="진단 결과">
+        <ErrorState error={error} />
+      </AppShell>
+    )
+  }
 
   if (!diagnosis || !evidence) {
     return (

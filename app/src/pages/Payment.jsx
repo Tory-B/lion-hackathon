@@ -16,15 +16,22 @@ export default function Payment() {
   const { createPayment, refreshAnalyses, refreshCredits } = useApp()
   const [selected, setSelected] = useState('PACK3')
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
 
   const plan = PLANS.find((p) => p.plan === selected)
 
   const handlePay = async () => {
     setSubmitting(true)
-    await createPayment(id, { plan: selected, paymentMethod: 'KAKAOPAY' })
-    await refreshAnalyses()
-    await refreshCredits()
-    navigate(`/analyze/${id}/result`)
+    setError('')
+    try {
+      await createPayment(id, { plan: selected, paymentMethod: 'KAKAOPAY' })
+      await refreshAnalyses()
+      await refreshCredits()
+      navigate(`/analyze/${id}/result`)
+    } catch (err) {
+      setError(err.message || '결제 처리에 실패했습니다.')
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -110,6 +117,7 @@ export default function Payment() {
           <Button className="w-full" disabled={submitting} onClick={handlePay}>
             {submitting ? '결제 처리 중…' : `${plan.amount.toLocaleString()}원 결제하기`}
           </Button>
+          {error && <p className="text-[12px] text-red-500 mt-2 text-center">{error}</p>}
           <p className="text-[11px] text-[#9aa39e] mt-3 text-center">
             실제 결제는 이루어지지 않는 데모용 목업입니다.
           </p>

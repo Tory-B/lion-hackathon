@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import ScoreRing from '../components/ui/ScoreRing'
+import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 
 const STEP_LABELS = [
@@ -15,6 +16,7 @@ export default function AnalysisProgress() {
   const navigate = useNavigate()
   const { getAnalysisStatus, refreshAnalyses } = useApp()
   const [status, setStatus] = useState(null)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     let stop = false
@@ -28,8 +30,9 @@ export default function AnalysisProgress() {
           setTimeout(() => navigate(`/analyze/${id}/result`), 700)
           return
         }
-      } catch {
-        // ignore, keep polling
+      } catch (err) {
+        if (!stop) setError(err)
+        return
       }
       if (!stop) setTimeout(poll, 500)
     }
@@ -38,6 +41,14 @@ export default function AnalysisProgress() {
       stop = true
     }
   }, [id, getAnalysisStatus, refreshAnalyses, navigate])
+
+  if (error) {
+    return (
+      <AppShell crumb="진단 중">
+        <ErrorState error={error} />
+      </AppShell>
+    )
+  }
 
   const stepIndex = status?.stepIndex ?? 0
   const stepCount = status?.stepCount ?? STEP_LABELS.length + 1

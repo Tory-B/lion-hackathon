@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 
 export default function Questionnaire() {
@@ -15,31 +16,42 @@ export default function Questionnaire() {
   const [type, setType] = useState('INTERVIEW')
   const [questionnaire, setQuestionnaire] = useState(null)
   const [error, setError] = useState('')
+  const [loadError, setLoadError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     getDiagnosis(id)
       .then((d) => setItemName(d.itemName))
-      .catch(() => {})
+      .catch(setLoadError)
 
     if (qid) {
       // 사이드바 "설문지" 목록 등에서 이미 만든 질문지를 다시 볼 때
-      getQuestionnaire(id, qid).then(setQuestionnaire)
+      getQuestionnaire(id, qid).then(setQuestionnaire).catch(setLoadError)
       return
     }
-    getEvidence(id).then((ev) => {
-      setHypotheses(ev.unverifiedHypotheses)
-      setSelected(ev.unverifiedHypotheses.map((h) => h.hypothesisId))
-      setLoaded(true)
-    })
+    getEvidence(id)
+      .then((ev) => {
+        setHypotheses(ev.unverifiedHypotheses)
+        setSelected(ev.unverifiedHypotheses.map((h) => h.hypothesisId))
+        setLoaded(true)
+      })
+      .catch(setLoadError)
   }, [id, qid, getEvidence, getDiagnosis, getQuestionnaire])
+
+  const previewScore = useMemo(() => 59 + selected.length * 4, [selected.length])
+
+  if (loadError) {
+    return (
+      <AppShell crumb="설문지">
+        <ErrorState error={loadError} />
+      </AppShell>
+    )
+  }
 
   const toggle = (hid) => {
     setSelected((prev) => (prev.includes(hid) ? prev.filter((x) => x !== hid) : [...prev, hid]))
   }
-
-  const previewScore = useMemo(() => 59 + selected.length * 4, [selected.length])
 
   const handleGenerate = async () => {
     if (selected.length === 0) {

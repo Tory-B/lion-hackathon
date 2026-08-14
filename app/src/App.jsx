@@ -9,6 +9,7 @@ import Report from './pages/Report'
 import QuestionnaireList from './pages/QuestionnaireList'
 import ReportList from './pages/ReportList'
 import CompareItems from './pages/CompareItems'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
       <Route path="/analyze/:id/questionnaire" element={<Questionnaire />} />
       <Route path="/analyze/:id/questionnaire/:qid" element={<Questionnaire />} />
       <Route path="/analyze/:id/report" element={<Report />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   )
 }
