@@ -29,7 +29,7 @@ export default function IndustryPicker({ selectedCode, onSelect }) {
         value={largeCategory}
         onChange={(e) => setLargeCategory(e.target.value)}
       >
-        <option value="">업종 대분류를 선택하세요</option>
+        <option value="">업종을 선택해주세요</option>
         {groups.map((g) => (
           <option key={g.largeCategory} value={g.largeCategory}>
             {g.largeCategory}
