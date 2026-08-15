@@ -105,7 +105,7 @@ export default function AppShell({ children, crumb }) {
               </svg>
             </button>
             <div className="flex items-center gap-2 text-sm text-[#8a938e] min-w-0">
-              <Link to="/home" className="shrink-0">
+              <Link to="/" className="shrink-0">
                 <Logo />
               </Link>
               {crumb && (

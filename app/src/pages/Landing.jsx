@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import Button from '../components/ui/Button'
 import Card from '../components/ui/Card'
 import OnboardingModal from '../components/OnboardingModal'
-import { Input } from '../components/ui/Field'
+import IndustryPicker from '../components/IndustryPicker'
 
 const LAYER_CARDS = [
   {
@@ -29,14 +29,16 @@ const LAYER_CARDS = [
 
 export default function Landing() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
+  const [selectedIndustry, setSelectedIndustry] = useState(null)
   const [showModal, setShowModal] = useState(false)
 
   return (
     <div className="min-h-screen bg-[#f4f6f5]">
       <header className="border-b border-[#e2e6e3] bg-white">
         <div className="max-w-[1200px] mx-auto flex items-center justify-between px-6 h-14">
-          <Logo />
+          <Link to="/">
+            <Logo />
+          </Link>
           <Button variant="secondary" onClick={() => navigate('/home')}>
             내 아이템
           </Button>
@@ -57,17 +59,16 @@ export default function Landing() {
           모든 점수는 서울 전체 분포에서의 백분위로 환산합니다.
         </p>
 
-        <div className="mt-8 flex flex-col sm:flex-row items-stretch gap-2 max-w-[560px] mx-auto">
-          <span className="shrink-0 inline-flex items-center justify-center rounded-lg border border-[#d8ddda] bg-white px-4 text-sm text-[#4b5450]">
-            서울 전 지역
-          </span>
-          <Input
-            placeholder="어떤 아이템인가요? 예: 카페"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="flex-1"
-          />
-          <Button onClick={() => setShowModal(true)} className="shrink-0">
+        <div className="mt-8 max-w-[560px] mx-auto text-left">
+          <div className="flex items-stretch gap-2">
+            <span className="shrink-0 inline-flex items-center justify-center rounded-lg border border-[#d8ddda] bg-white px-4 text-sm text-[#4b5450]">
+              서울 전 지역
+            </span>
+            <div className="flex-1">
+              <IndustryPicker selectedCode={selectedIndustry?.industryCode} onSelect={setSelectedIndustry} />
+            </div>
+          </div>
+          <Button onClick={() => setShowModal(true)} className="w-full mt-2">
             무료로 진단하기
           </Button>
         </div>
@@ -138,7 +139,13 @@ export default function Landing() {
         </div>
       </section>
 
-      {showModal && <OnboardingModal initialQuery={query} onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <OnboardingModal
+          initialIndustryCode={selectedIndustry?.industryCode}
+          initialIndustryName={selectedIndustry?.industryName}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   )
 }

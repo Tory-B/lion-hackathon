@@ -56,9 +56,10 @@ export async function getIndustries(q) {
 // ── 1. 분석 요청 생성 ──────────────────────────────
 export async function createAnalysis(payload) {
   await delay(600)
-  const { itemName, industryCode, problem, targetCustomer, deliveryMethod, regionSggCode } = payload
+  const { itemName, industryCode, problem, targetCustomer, deliveryMethod = '', regionSggCode } = payload
 
-  if (!itemName || !industryCode || !problem || !targetCustomer || !deliveryMethod || !regionSggCode) {
+  // 제공 방식은 팀 피드백 이후 필수값에서 빠졌다 (백엔드도 @NotBlank 제거).
+  if (!itemName || !industryCode || !problem || !targetCustomer || !regionSggCode) {
     throw new ApiError('VALIDATION_ERROR', '필수 입력값이 누락되었습니다.', 400)
   }
 

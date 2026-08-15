@@ -9,7 +9,7 @@ import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 import { getAnalysisMeta } from '../lib/localMeta'
 import { gradeScore } from '../lib/riskGrader'
-import { computeEarned } from '../lib/factorWeights'
+import { computeEarned, FACTOR_EXPLAIN } from '../lib/factorWeights'
 
 const LAYER_ORDER = ['market', 'customer', 'competition']
 
@@ -121,20 +121,23 @@ export default function Report() {
           <p className="font-semibold text-[#14181a] mb-3">
             {idx + 1}. {l.layerName}
           </p>
-          <ul className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-3">
             {l.factors.map((f) => {
               const computed = computeEarned(f)
               return (
-                <li key={f.factor} className="text-[13px] text-[#4b5450] flex items-start gap-1.5">
-                  <span className="text-brand-600 mt-0.5">✓</span>
-                  <span>
+                <div key={f.factor} className="border-t border-[#eef1ef] pt-3 first:border-t-0 first:pt-0">
+                  <p className="text-[13px] font-medium text-[#14181a] flex items-center gap-1.5">
+                    <span className="text-brand-600">✓</span>
                     {f.factor} — {f.percentile}
                     {computed?.earned != null ? ` (${computed.earned}/${computed.weight}점)` : ''}
-                  </span>
-                </li>
+                  </p>
+                  {FACTOR_EXPLAIN[f.factor] && (
+                    <p className="text-[12px] text-[#9aa39e] mt-1 pl-5">{FACTOR_EXPLAIN[f.factor]}</p>
+                  )}
+                </div>
               )
             })}
-          </ul>
+          </div>
         </Card>
       ))}
 

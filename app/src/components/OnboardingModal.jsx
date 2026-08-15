@@ -1,39 +1,31 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Button from './ui/Button'
+import IndustryPicker from './IndustryPicker'
 import { Label, Input, Textarea, FieldError } from './ui/Field'
 import { DISTRICTS } from '../data/districts'
 import { useApp } from '../context/AppContext'
 
-export default function OnboardingModal({ initialQuery = '', initialDistrictCode = '', onClose }) {
+export default function OnboardingModal({
+  initialIndustryCode = '',
+  initialIndustryName = '',
+  initialDistrictCode = '',
+  onClose,
+}) {
   const navigate = useNavigate()
-  const { createAnalysis, refreshAnalyses, getIndustries } = useApp()
+  const { createAnalysis, refreshAnalyses } = useApp()
 
-  const [industryQuery, setIndustryQuery] = useState(initialQuery)
-  const [industryCode, setIndustryCode] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(false)
-  const [suggestions, setSuggestions] = useState([])
+  const [industryCode, setIndustryCode] = useState(initialIndustryCode)
+  const [industryName, setIndustryName] = useState(initialIndustryName)
+  // 랜딩에서 이미 업종을 골라 넘어온 경우 다시 물어보지 않는다 (팀 피드백).
+  // "변경" 누르면 그때만 선택지를 다시 펼친다.
+  const [changingIndustry, setChangingIndustry] = useState(!initialIndustryCode)
   const [districtCode, setDistrictCode] = useState(initialDistrictCode)
-  const [itemName, setItemName] = useState('')
+  const [itemName, setItemName] = useState(initialIndustryName)
   const [problem, setProblem] = useState('')
   const [targetCustomer, setTargetCustomer] = useState('')
-  const [deliveryMethod, setDeliveryMethod] = useState('')
   const [errors, setErrors] = useState({})
   const [submitting, setSubmitting] = useState(false)
-
-  // 업종 목록은 실제 서울 매출데이터와 매핑된 코드만 유효하므로, 반드시 서버(또는 mock)의
-  // 0번 API(GET /api/industries)에서 받은 코드만 써야 한다 — 임의로 지어낸 코드는
-  // INDUSTRY_NOT_SUPPORTED(422)로 거부된다.
-  useEffect(() => {
-    const q = industryQuery.trim()
-    const timer = setTimeout(() => {
-      getIndustries(q || undefined).then((res) => {
-        const flat = res.groups.flatMap((g) => g.industries.map((i) => ({ ...i, largeCategory: g.largeCategory })))
-        setSuggestions(flat.slice(0, 8))
-      })
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [industryQuery, getIndustries])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -44,20 +36,19 @@ export default function OnboardingModal({ initialQuery = '', initialDistrictCode
 
   const pickIndustry = (industry) => {
     setIndustryCode(industry.industryCode)
-    setIndustryQuery(industry.industryName)
-    setShowSuggestions(false)
+    setIndustryName(industry.industryName)
+    setChangingIndustry(false)
     if (!itemName) setItemName(industry.industryName)
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     const nextErrors = {}
-    if (!industryCode) nextErrors.industry = '목록에서 업종을 선택해 주세요.'
+    if (!industryCode) nextErrors.industry = '업종을 선택해 주세요.'
     if (!districtCode) nextErrors.district = '자치구를 선택해 주세요.'
     if (!itemName.trim()) nextErrors.itemName = '아이템명을 입력해 주세요.'
     if (!problem.trim()) nextErrors.problem = '해결하려는 문제를 입력해 주세요.'
     if (!targetCustomer.trim()) nextErrors.targetCustomer = '예상 고객을 입력해 주세요.'
-    if (!deliveryMethod.trim()) nextErrors.deliveryMethod = '제공 방식을 입력해 주세요.'
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors)
       return
@@ -69,7 +60,7 @@ export default function OnboardingModal({ initialQuery = '', initialDistrictCode
         industryCode,
         problem: problem.trim(),
         targetCustomer: targetCustomer.trim(),
-        deliveryMethod: deliveryMethod.trim(),
+        deliveryMethod: '',
         regionSggCode: districtCode,
       })
       await refreshAnalyses()
@@ -94,33 +85,21 @@ export default function OnboardingModal({ initialQuery = '', initialDistrictCode
         </p>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div className="relative">
+          <div>
             <Label required>업종</Label>
-            <Input
-              placeholder="예: 카페"
-              value={industryQuery}
-              error={errors.industry}
-              onChange={(e) => {
-                setIndustryQuery(e.target.value)
-                setIndustryCode('')
-                setShowSuggestions(true)
-              }}
-              onFocus={() => setShowSuggestions(true)}
-            />
-            {showSuggestions && suggestions.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-[#e2e6e3] rounded-lg shadow-lg overflow-hidden">
-                {suggestions.map((i) => (
-                  <button
-                    type="button"
-                    key={i.industryCode}
-                    onClick={() => pickIndustry(i)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-[#f4f6f5] flex items-center justify-between"
-                  >
-                    <span>{i.industryName}</span>
-                    <span className="text-[11px] text-[#9aa39e]">{i.largeCategory}</span>
-                  </button>
-                ))}
+            {!changingIndustry && industryCode ? (
+              <div className="flex items-center justify-between rounded-lg border border-[#d8ddda] px-3 py-2.5">
+                <span className="text-sm text-[#14181a]">{industryName}</span>
+                <button
+                  type="button"
+                  onClick={() => setChangingIndustry(true)}
+                  className="text-[12px] text-brand-700 underline"
+                >
+                  변경
+                </button>
               </div>
+            ) : (
+              <IndustryPicker selectedCode={industryCode} onSelect={pickIndustry} />
             )}
             <FieldError>{errors.industry}</FieldError>
           </div>
@@ -175,17 +154,6 @@ export default function OnboardingModal({ initialQuery = '', initialDistrictCode
               onChange={(e) => setTargetCustomer(e.target.value)}
             />
             <FieldError>{errors.targetCustomer}</FieldError>
-          </div>
-
-          <div>
-            <Label required>제공 방식</Label>
-            <Input
-              placeholder="예: 오프라인 매장"
-              value={deliveryMethod}
-              error={errors.deliveryMethod}
-              onChange={(e) => setDeliveryMethod(e.target.value)}
-            />
-            <FieldError>{errors.deliveryMethod}</FieldError>
           </div>
 
           {errors.submit && <p className="text-[13px] text-red-500">{errors.submit}</p>}

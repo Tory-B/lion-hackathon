@@ -9,7 +9,7 @@ import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 import { getAnalysisMeta } from '../lib/localMeta'
 import { gradeScore } from '../lib/riskGrader'
-import { computeEarned } from '../lib/factorWeights'
+import { computeEarned, FACTOR_EXPLAIN } from '../lib/factorWeights'
 
 const LAYER_ORDER = ['market', 'customer', 'competition']
 
@@ -70,6 +70,9 @@ function LayerBreakdown({ layer }) {
                   )}
                 </p>
               </div>
+              {FACTOR_EXPLAIN[f.factor] && (
+                <p className="text-[11px] text-[#9aa39e] mb-1.5">{FACTOR_EXPLAIN[f.factor]}</p>
+              )}
               <p className="text-[12px] text-[#6b7570] mb-1">{f.value}</p>
               {f.confidenceStatus === 'LOW_SAMPLE' ? (
                 <ConfidenceTag status="LOW_SAMPLE" />
@@ -103,8 +106,15 @@ function LayerBreakdown({ layer }) {
             {layer.factors.map((f) => {
               const computed = computeEarned(f)
               return (
-                <tr key={f.factor} className="border-t border-[#eef1ef]">
-                  <td className="py-2 pr-3 font-medium text-[#14181a] whitespace-nowrap">{f.factor}</td>
+                <tr key={f.factor} className="border-t border-[#eef1ef] align-top">
+                  <td className="py-2 pr-3 font-medium text-[#14181a] max-w-[220px]">
+                    {f.factor}
+                    {FACTOR_EXPLAIN[f.factor] && (
+                      <p className="text-[11px] font-normal text-[#9aa39e] mt-0.5 whitespace-normal">
+                        {FACTOR_EXPLAIN[f.factor]}
+                      </p>
+                    )}
+                  </td>
                   <td className="py-2 pr-3 text-[#6b7570]">{f.value}</td>
                   <td className="py-2 pr-3 text-[#6b7570]">{computed?.weight ?? '—'}</td>
                   <td className="py-2 pr-3">
