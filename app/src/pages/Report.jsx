@@ -166,7 +166,6 @@ export default function Report() {
               <th className="font-normal pb-2">근거</th>
               <th className="font-normal pb-2">값</th>
               <th className="font-normal pb-2">출처</th>
-              <th className="font-normal pb-2">기준 시점</th>
             </tr>
           </thead>
           <tbody>
@@ -174,8 +173,7 @@ export default function Report() {
               <tr key={i} className="border-t border-[#eef1ef]">
                 <td className="py-2 pr-3">{e.factor}</td>
                 <td className="py-2 pr-3 font-medium text-[#14181a]">{e.value}</td>
-                <td className="py-2 pr-3">{e.source}</td>
-                <td className="py-2">{e.referenceDate}</td>
+                <td className="py-2">{e.source}</td>
               </tr>
             ))}
           </tbody>
