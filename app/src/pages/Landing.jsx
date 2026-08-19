@@ -47,7 +47,7 @@ export default function Landing() {
 
       <div className="max-w-[800px] mx-auto px-6 pt-20 pb-16 text-center">
         <div className="flex justify-center mb-6">
-          <img src="/icon.png" alt="suyo" className="w-[96px] h-[96px] object-contain" />
+          <img src="/icon.png" alt="suyo" className="w-[160px] h-[160px] object-contain" />
         </div>
         <h1 className="text-[44px] font-bold tracking-tight text-[#14181a]">suyo</h1>
         <p className="mt-5 text-[16px] text-[#4b5450] leading-relaxed">
