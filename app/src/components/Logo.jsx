@@ -1,4 +1,4 @@
-export default function Logo({ size = 36 }) {
+export default function Logo({ size = 48 }) {
   return (
     <span className="inline-flex items-center gap-2 text-[#14181a]">
       <span
