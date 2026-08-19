@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import AppShell from '../components/AppShell'
 import Card from '../components/ui/Card'
@@ -38,8 +38,6 @@ export default function Questionnaire() {
       })
       .catch(setLoadError)
   }, [id, qid, getEvidence, getDiagnosis, getQuestionnaire])
-
-  const previewScore = useMemo(() => 59 + selected.length * 4, [selected.length])
 
   if (loadError) {
     return (
@@ -200,13 +198,6 @@ export default function Questionnaire() {
             </label>
           ))}
         </div>
-      </Card>
-
-      <Card className="mb-6 !bg-brand-50 border-brand-200">
-        <p className="text-[13px] text-brand-800">
-          응답 {previewScore >= 71 ? 100 : 100}건 반영 시 예상 <span className="font-bold">59 → {previewScore}</span>{' '}
-          까지 오를 수 있습니다. (질문지 생성까지가 서비스 범위이며, 실제 반영은 이 앱 밖에서 이루어집니다.)
-        </p>
       </Card>
 
       <div className="flex justify-end">

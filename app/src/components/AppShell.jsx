@@ -32,7 +32,6 @@ function SidebarNav({ counts, isActive, onNavigate, onNewAnalysis }) {
           }`}
         >
           아이템 비교
-          <span className="text-[10px] border border-[#e2e6e3] rounded px-1.5 py-0.5 text-[#9aa39e]">BETA</span>
         </Link>
       </nav>
 

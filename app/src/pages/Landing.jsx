@@ -55,8 +55,6 @@ export default function Landing() {
         <h1 className="text-[44px] font-bold tracking-tight text-[#14181a]">suyo</h1>
         <p className="mt-5 text-[16px] text-[#4b5450] leading-relaxed">
           창업 아이템을 넣으면 시장·고객·경쟁 세 레이어로 진단합니다.
-          <br />
-          모든 점수는 서울 전체 분포에서의 백분위로 환산합니다.
         </p>
 
         <div className="mt-8 max-w-[560px] mx-auto text-left">
