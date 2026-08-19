@@ -157,31 +157,6 @@ export default function Report() {
           ))}
         </ul>
       </Card>
-
-      <Card>
-        <p className="font-semibold text-[#14181a] mb-3">부록 · 데이터 출처</p>
-        <table className="w-full text-[12px] text-[#4b5450]">
-          <thead>
-            <tr className="text-left text-[#9aa39e]">
-              <th className="font-normal pb-2">근거</th>
-              <th className="font-normal pb-2">값</th>
-              <th className="font-normal pb-2">출처</th>
-            </tr>
-          </thead>
-          <tbody>
-            {evidence.confirmedEvidences.map((e, i) => (
-              <tr key={i} className="border-t border-[#eef1ef]">
-                <td className="py-2 pr-3">{e.factor}</td>
-                <td className="py-2 pr-3 font-medium text-[#14181a]">{e.value}</td>
-                <td className="py-2">{e.source}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="text-[11px] text-[#9aa39e] mt-4">
-          등급은 서울 2,395개 업종×지역 조합 대비 상대적 위치입니다. 절대적으로 안전한 사업이라는 뜻이 아닙니다.
-        </p>
-      </Card>
     </AppShell>
   )
 }
