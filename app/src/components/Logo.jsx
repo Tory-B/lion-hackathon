@@ -6,7 +6,7 @@ export default function Logo({ size = 22 }) {
         style={{ width: size, height: size }}
       >
         <img
-          src="/icon.jpg"
+          src="/icon.png"
           alt="suyo"
           className="w-full h-full object-cover scale-[1.35]"
         />
