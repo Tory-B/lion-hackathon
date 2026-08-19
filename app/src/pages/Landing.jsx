@@ -23,7 +23,7 @@ const LAYER_CARDS = [
     tag: 'L3',
     title: '경쟁',
     desc: '이미 포화 상태인가',
-    points: ['점포 수·밀도·점포당 매출', '업종별 3년 생존율'],
+    points: ['점포 수·밀도·점포당 매출', '업종별 5년 생존율'],
   },
 ]
 
@@ -46,12 +46,12 @@ export default function Landing() {
       </header>
 
       <div className="max-w-[800px] mx-auto px-6 pt-20 pb-16 text-center">
-        <div className="flex justify-center mb-6">
-          <img src="/icon.png" alt="suyo" className="w-[160px] h-[160px] object-contain" />
+        <div className="flex justify-center mt-4 mb-6">
+          <img src="/icon.png" alt="suyo" className="w-[220px] h-[220px] object-contain" />
         </div>
         <h1 className="text-[44px] font-bold tracking-tight text-[#14181a]">suyo</h1>
         <p className="mt-5 text-[16px] text-[#4b5450] leading-relaxed">
-          창업 아이템을 넣으면 시장·고객·경쟁 세 레이어로 진단합니다.
+          진단부터 질문지까지, 창업 전 확인은 여기서 끝내세요!
         </p>
 
         <div className="mt-8 max-w-[560px] mx-auto text-left">
