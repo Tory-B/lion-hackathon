@@ -47,10 +47,7 @@ export default function Landing() {
 
       <div className="max-w-[800px] mx-auto px-6 pt-20 pb-16 text-center">
         <div className="flex justify-center mb-6">
-          <svg width="72" height="72" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2 4 5v6c0 5 3.4 8.6 8 11 4.6-2.4 8-6 8-11V5l-8-3Z" className="fill-brand-500" />
-            <path d="M8 13.5 10.5 11l2 2L16 9" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <img src="/icon.jpg" alt="suyo" className="w-[96px] h-[96px] object-contain" />
         </div>
         <h1 className="text-[44px] font-bold tracking-tight text-[#14181a]">suyo</h1>
         <p className="mt-5 text-[16px] text-[#4b5450] leading-relaxed">
