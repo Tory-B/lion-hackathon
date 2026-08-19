@@ -6,6 +6,14 @@ import Button from '../components/ui/Button'
 import ErrorState from '../components/ErrorState'
 import { useApp } from '../context/AppContext'
 
+// 설문용(SURVEY) 문항은 "질문? ① 보기1 ② 보기2 ..." 처럼 보기가 한 문장에 붙어서 온다.
+// 원문자(①②③...)가 처음 나오는 지점을 기준으로 질문과 보기 줄을 나눠서 보여준다.
+function splitQuestionAndOptions(text) {
+  const idx = text.search(/[①-⑳]/)
+  if (idx <= 0) return { stem: text, options: null }
+  return { stem: text.slice(0, idx).trim(), options: text.slice(idx).trim() }
+}
+
 export default function Questionnaire() {
   const { id, qid } = useParams()
   const navigate = useNavigate()
@@ -93,8 +101,18 @@ export default function Questionnaire() {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[12px] font-semibold text-brand-700">Q{it.order}</span>
                 </div>
-                <p className="text-[14px] text-[#14181a] leading-relaxed mb-2">{it.questionText}</p>
-                <p className="text-[11px] text-[#9aa39e]">검증 목적: {it.purpose}</p>
+                {(() => {
+                  const { stem, options } = splitQuestionAndOptions(it.questionText)
+                  return (
+                    <>
+                      <p className="text-[14px] text-[#14181a] leading-relaxed">{stem}</p>
+                      {options && (
+                        <p className="text-[13px] text-[#4b5450] leading-relaxed mt-1">{options}</p>
+                      )}
+                    </>
+                  )
+                })()}
+                <p className="text-[11px] text-[#9aa39e] mt-2">검증 목적: {it.purpose}</p>
               </Card>
             ))}
           </div>
